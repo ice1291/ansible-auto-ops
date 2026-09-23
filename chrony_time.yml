@@ -1,0 +1,41 @@
+- name: 系统标准化初始化
+  hosts: all
+  tasks:
+    - name: 设置系统时区为Asia/Shanghai
+      timezone:
+        name: Asia/Shanghai
+    - name: 配置Chrony时间同步服务
+      yum:
+        name: chrony
+        state: present
+    - name: 配置Chrony指向阿里云NTP服务器
+      lineinfie:
+        path: /etc/chrony.conf
+        regexp: '^server'
+        line: 'server ntp.aliyun.comiburst'
+        state: present
+        notify: Restart Chronyd
+    - name: 启动Chronyd并设置开机自启
+      service:
+        name: chronyd
+        state: started
+        enabled: yes
+
+        #===========================================================
+        #内核参数调优
+        #===========================================================
+    - name: 优化系统内核参数
+      ansible.posix.sysctl:
+        name: "{{item.name}}"
+        value: "{{item.value}}"
+        state: present
+        reload: yes
+      loop:
+        - {name: 'fs.file-max',value:'1'}
+        - {name: 'net.ipv4.tcp_tw_reuse',value:'1'}
+        - {name: 'vm.swappiness',value:'10'}
+    handlers:
+      - name: Restart Chronyd
+        service:  
+          name: chronyd
+          state: restarted
